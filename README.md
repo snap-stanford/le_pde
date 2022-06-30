@@ -1,3 +1,3 @@
-# le_pde
+# Learning to Accelerate Partial Differential Equations via Latent Global Evolution
 
-Will update soon.
+To be updated soon.
