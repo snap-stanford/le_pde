@@ -4,17 +4,6 @@ This repository reproduces the results in the paper [Learning to Accelerate Part
 
 <a href="url"><img src="https://github.com/snap-stanford/le_pde/blob/master/assets/le_pde.png" align="center" width="700" ></a>
 
-If you find our work and/or our code useful, please cite us via:
-
-```bibtex
-@inproceedings{wu2022learning,
-title={Learning to accelerate partial differential equations via latent global evolution},
-author={Wu, Tailin and Maruyama, Takashi and Leskovec, Jure},
-booktitle={Neural Information Processing Systems},
-year={2022},
-}
-```
-
 # Installation
 
 1. First clone the directory. Then run the following command to initialize the submodules:
@@ -68,6 +57,8 @@ python train.py --exp_id=tailin-lepde --date_time=2022-11-21 --dataset=fno-4 --n
 
 The results are saved under `results/{--exp_id}_{--date_time}/` (here `--exp_id` and `--date_time` are according to the command for training). Each experiment file has the following suffix: "*Hash_{hash}_{machine-name}.p". The hash (e.g., "Un6ae7ja"), is uniquely generated according to all the configurations of the argparse (if any argument is different, it will result in a different hash).
 
+For all the commands that reproduce the experiments in the paper, see the [results/README.md](https://github.com/snap-stanford/le_pde/blob/master/results/README.md).
+
 # Analysis
 
 To analyze the results, use the following notebooks:
@@ -77,3 +68,15 @@ To analyze the results, use the following notebooks:
 * Inverse optimization: [analysis_inverse.ipynb](https://github.com/snap-stanford/le_pde/blob/master/analysis_inverse.ipynb)
 
 Pre-trained experiment files can also be downloaded [here](https://drive.google.com/drive/folders/1eHrr5CX1HEuqpsoQ0G89SyT47Dg8GyoR?usp=share_link) (put it under result/, and also change the `dirname` in the analysis notebook accordingly).
+
+# Citation
+If you find our work and/or our code useful, please cite us via:
+
+```bibtex
+@inproceedings{wu2022learning,
+title={Learning to accelerate partial differential equations via latent global evolution},
+author={Wu, Tailin and Maruyama, Takashi and Leskovec, Jure},
+booktitle={Neural Information Processing Systems},
+year={2022},
+}
+```
