@@ -1,0 +1,5 @@
+deepsnap=0.2.0
+matplotlib
+tqdm
+scipy
+h5py
