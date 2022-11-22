@@ -5,7 +5,6 @@ import numpy as np
 import pdb
 import pickle
 import pprint as pp
-import scipy
 import torch
 import torch.nn as nn
 from torch.utils.data import DataLoader
@@ -26,8 +25,6 @@ from le_pde.utils import p, EXP_PATH, get_model_dict, get_elements, is_diagnose,
 
 
 # ## Initialization:
-
-# In[ ]:
 
 
 args = arg_parse()

@@ -22,7 +22,7 @@ from le_pde.datasets.mppde1d_dataset import MPPDE1D
 from le_pde.datasets.fno_dataset import FNOData
 from le_pde.datasets.karman3d_dataset import Karman3D
 from le_pde.datasets.movinggas_dataset import MovingGas
-from le_pde.pytorch_net.util import ddeepcopy as deepcopy, Batch
+from le_pde.pytorch_net.util import ddeepcopy as deepcopy, Batch, make_dir
 from le_pde.utils import p, PDE_PATH, get_elements, is_diagnose, get_keys_values, loss_op, to_tuple_shape, parse_string_idx_to_list, parse_multi_step, get_device, Channel_Gen, process_data_for_CNN, get_activation, get_normalization, Mean, Flatten, Permute, Reshape, to_cpu, add_data_noise
 
 
@@ -289,6 +289,7 @@ def load_data(args, **kwargs):
         # Save pre-processed dataset into file:
         if is_save:
             if not args.is_test_only:
+                make_dir(filename_train_val)
                 if "pyg_dataset_train_val" in locals():
                     if not os.path.isfile(filename_train_val):
                         pickle.dump(dataset_train_val, open(filename_train_val, "wb"))

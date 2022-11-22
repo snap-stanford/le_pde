@@ -9,7 +9,6 @@ import torch.nn.functional as F
 import numpy as np
 import os
 import sys
-import networkx as nx
 from tqdm import tqdm
 import matplotlib.pyplot as plt
 import copy
@@ -1153,7 +1152,7 @@ class MLP(nn.Module):
         normalization_type="None",
         is_prioritized_dropout=False,
     ):
-        super(MLP, self).__init__()
+        super().__init__()
         self.input_size = input_size
         self.n_neurons = n_neurons
         if not isinstance(n_neurons, Number):
@@ -1725,57 +1724,6 @@ def combine_node_label_time(dataset):
     return data
 
 
-def get_rho(F, du):
-    """
-    Args:
-        F: shape [..., u_size, x_size]
-
-    Returns:
-        rho: shape [..., x_size]
-    """
-    return 1.0 - torch.trapz(F, dx=du, axis=-2)
-
-
-def get_E_from_rho(rho, dx):
-    """Compute self-consistent E field from electron distribution F with 2-steam Vlasov data.
-    Args:
-        rho: shape [..., x_size]
-
-    Returns:
-        E: shape [..., x_size]
-    """
-    def pytorch_fftfreq(n, d=1.0, device='cpu'):
-        results = torch.empty(n, device=device)
-        s = (n-1) // 2 + 1
-        results[:s] = torch.arange(0, s, device=device)
-        results[s:] = torch.arange(-(n//2), 0, device=device)
-        return results * (1.0 / (n * d))
-    def get_phi(rho, dx):
-        """phi: shape [..., x_size]"""
-        nx = rho.shape[-1]
-        rho_k = fft(rho)
-        k = 2*np.pi*pytorch_fftfreq(nx, d=dx, device=rho.device)
-        k[0] = 1
-        phi = torch.fft.ifft(-rho_k/(k**2)).real
-        return phi
-    def get_E_from_phi(phi, dx):
-        E = torch.cat([(phi[...,1:2]-phi[...,-1:]), phi[...,2:]-phi[...,:-2], (phi[...,0:1]-phi[...,-2:-1])], -1) / (2*dx)
-        return E
-
-    phi = get_phi(rho, dx=dx)
-    E   = get_E_from_phi(phi, dx=dx)
-    return E
-
-
-def get_J(F, v, du):
-    """
-    Args:
-        F: shape [..., u_size, x_size]
-        v: shape [..., u_size, x_size]
-    """
-    return torch.trapz(-v*F,dx=du,axis=-2)
-
-
 def get_root_dir(level=0):
     """Obtain the root directory of the repo.
     Args:
@@ -1802,63 +1750,6 @@ def is_diagnose(loc, filename):
         return True
     else:
         return False
-
-
-def interpolate_2d(node_feature_2, length=4):
-    from scipy.interpolate import griddata
-    node_feature_2 = node_feature_2[:, 1:-1]
-    x_mesh, y_mesh = np.meshgrid(np.arange(2*length+2), np.arange(256))
-    mesh = np.stack([x_mesh, y_mesh], -1)
-    points = np.concatenate([mesh[:, :length], mesh[:, -length:]], 1).reshape(-1, 2)  # (256*length*2, 2)
-    values = torch.cat([node_feature_2[:, -length:], node_feature_2[:, :length]], 1).reshape(-1)  # (256*length*2)
-    xi = mesh[:, length:-length].reshape(-1, 2)
-
-    interpolation = griddata(points, values, xi, method='cubic').reshape(-1, 2)
-    node_feature_2 = torch.cat([torch.FloatTensor(interpolation[...,1:]), node_feature_2, torch.FloatTensor(interpolation[:,:1])], 1)
-    return node_feature_2
-
-
-def fix_VL_small3_data(data, n_periods=5, offset=4, isplot=False):
-    node_feature_2 = data.node_feature["2"][..., -1:].reshape(*dict(data.original_shape)["2"])
-    node_label_2 = data.node_label["2"][..., -1:].reshape(*dict(data.original_shape)["2"])
-    v_grid = data.node_feature["2"][..., -2:-1].reshape(*dict(data.original_shape)["2"])
-    node_feature_2 = interpolate_2d(node_feature_2, length=4)
-    node_label_2 = interpolate_2d(node_label_2, length=4)
-    x_size = node_feature_2.shape[1]
-
-    node_feature_2 = torch.cat([node_feature_2] * (2 * n_periods + 1), 1)
-    node_label_2_new = torch.cat([node_label_2] * (2 * n_periods + 1), 1).reshape(-1, 1, 1)
-    v_grid = torch.cat([v_grid] * (2 * n_periods + 1), 1)
-    original_shape_2 = tuple(node_feature_2)
-    node_feature_2_new = torch.stack([v_grid, node_feature_2], -1).reshape(-1, 1, 2)
-    node_feature_0_new = torch.cat([data.node_feature["0"]] * (2 * n_periods + 1))
-    node_label_0_new = torch.cat([data.node_label["0"]] * (2 * n_periods + 1))
-
-    x_size_new = x_size * (2 * n_periods + 1)
-    data.node_feature = {"0": node_feature_0_new, "2": node_feature_2_new}
-    data.node_label = {"0": node_label_0_new, "2": node_label_2_new}
-    mask_0 = torch.zeros(x_size_new).bool()
-    mask_2 = torch.zeros(256, x_size_new).bool()
-    mask_0[x_size*n_periods+offset: x_size*(n_periods+1)-offset] = True
-    mask_2[:, x_size*n_periods+offset: x_size*(n_periods+1)-offset] = True
-    data.mask = {"0": mask_0, "2": mask_2.view(-1)}
-    data.mask_non_badpoints = {"0": torch.ones(x_size_new).bool(), "2": torch.ones(256, x_size_new).bool().view(-1)}
-    data.original_shape = (('0', (x_size_new,)), ('2', (256, x_size_new)))
-
-    if isplot:
-        plt.figure(figsize=(18,6))
-        plt.imshow(node_feature_2[:,:1000], vmin=0, vmax=7, aspect="auto", cmap="gist_heat_r", origin='lower',)
-        plt.show()
-    return data
-
-
-def fix_VL_small3_dataset(dataset, n_periods=5, offset=4):
-    x_size = dict(dataset[0].original_shape)["0"][0]
-    for data in dataset:
-        fix_VL_small3_data(data, n_periods=n_periods, offset=offset)
-    dataset.mask_outer = torch.zeros(x_size).bool()
-    dataset.mask_outer[offset: -offset] = True
-    return dataset
 
 
 def get_keys_values(Dict, exclude=None):
@@ -2410,3 +2301,68 @@ def write_zipped_array(filename, array):
     if not physics_config.is_x_first and array.shape[-1] != 1:
         array = array[..., ::-1]  # component order in stored files is always XYZ
     np.savez_compressed(filename, array)
+
+
+def update_legacy_default_hyperparam(Dict):
+    """Default hyperparameters for legacy settings."""
+    default_param = {
+        # Dataset:
+        "time_interval": 1,
+        "sector_size": "-1",
+        "sector_stride": "-1",
+        "seed": -1,
+        "dataset_split_type": "standard",
+        "train_fraction": float(8/9),
+        "temporal_bundle_steps": 1,
+        "is_y_variable_length": False,
+        "data_noise_amp": 0,
+        "data_dropout": "None",
+
+        # Model:
+        "latent_multi_step": None,
+        "padding_mode": "zeros",
+        "latent_noise_amp": 0,
+        "decoder_last_act_name": "linear",
+        "hinge": 1,
+        "contrastive_rel_coef": 0,
+        "n_conv_layers_latent": 1,
+        "is_latent_flatten": True,
+        "channel_mode": "exp-16",
+        "no_latent_evo": False,
+        "reg_type": "None",
+        "reg_coef": 0,
+        "is_reg_anneal": True,
+        "forward_type": "Euler",
+        "evo_groups": 1,
+        "evo_conv_type": "cnn",
+        "evo_pos_dims": -1,
+        "evo_inte_dims": -1,
+        "decoder_act_name": "None",
+        "vae_mode": "None",
+        "is_1d_periodic": False,
+        "is_normalize_pos": True,
+
+        # Training:
+        "is_pretrain_autoencode": False,
+        "is_vae": False,
+        "epochs_pretrain": 0,
+        "dp_mode": "None",
+        "latent_loss_normalize_mode": "None",
+        "reinit_mode": "None",
+        "is_clip_grad": False,
+        "multi_step_start_epoch": 0,
+        "epsilon_latent_loss": 0,
+        "test_interval": 1,
+        "lr_min_cos": 0,
+        "is_prioritized_dropout": False,
+
+        # Unet:
+        "unet_fmaps": 64,
+        
+    }
+    for key, item in default_param.items():
+        if key not in Dict:
+            Dict[key] = item
+    if "seed" in Dict and Dict["seed"] is None:
+        Dict["seed"] = -1
+    return Dict

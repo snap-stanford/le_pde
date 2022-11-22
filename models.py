@@ -5,7 +5,6 @@ import numpy as np
 import pdb
 import pickle
 import random
-import scipy
 import time
 import torch
 import torch.nn as nn
@@ -17,7 +16,6 @@ from torch.optim import lr_scheduler
 from torch_geometric.nn.inits import reset
 import torch_geometric.nn as pyg_nn
 import torch_geometric.utils as pyg_utils
-import xarray as xr
 from tqdm import tqdm
 import matplotlib
 import math

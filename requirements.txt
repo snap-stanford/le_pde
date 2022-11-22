@@ -3,3 +3,4 @@ matplotlib
 tqdm
 scipy
 h5py
+pandas
