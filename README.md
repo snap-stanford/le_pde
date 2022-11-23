@@ -1,5 +1,7 @@
 ## LE-PDE: Learning to Accelerate Forward Simulation and Inverse Optimization of PDEs via Latent Global Evolution
 
+[Paper](https://arxiv.org/abs/2206.07681) | [Slide](https://docs.google.com/presentation/d/1Qgbd_vVbFAnjqkvIH8p_t9mfUQRWKr1ZAkxzzavoGhc/edit?usp=share_link)
+
 This repository reproduces the results in the paper [Learning to Accelerate Partial Differential Equations via Latent Global Evolution](https://arxiv.org/abs/2206.07681) (Tailin Wu, Takashi Maruyama, Jure Leskovec, NeurIPS 2022), which introduces a simple, fast and scalable LE-PDE method to accelerate the simulation and inverse optimization of PDEs, which are crucial in many scientific and engineering applications (e.g., weather forecasting, material science, engine design). LE-PDE achieves up to 128x reduction in the dimensions to update, and up to 15x improvement in speed, while achieving competitive accuracy compared to state-of-the-art deep learning-based surrogate models (e.g., FNO, MP-PDE).
 
 <a href="url"><img src="https://github.com/snap-stanford/le_pde/blob/master/assets/le_pde.png" align="center" width="700" ></a>
