@@ -17,7 +17,7 @@ git submodule init; git submodule update
 
 2. Install dependencies.
 
-First, create a new environment using conda. Then install pytorch, torch-geometric and other dependencies as follows (the repository is run with the following dependencies. Other version of torch-geometric or deepsnap may work but there is no guarentee.)
+First, create a new environment using [conda](https://docs.conda.io/en/latest/miniconda.html) (with python >= 3.7). Then install pytorch, torch-geometric and other dependencies as follows (the repository is run with the following dependencies. Other version of torch-geometric or deepsnap may work but there is no guarentee.)
 
 Install pytorch (replace "cu113" with appropriate cuda version. For example, cuda11.1 will use "cu111"):
 ```code
