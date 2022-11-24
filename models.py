@@ -2564,7 +2564,6 @@ def unittest_model(model, data, args, device, use_grads=True, use_pos=False, is_
         data = deepcopy(data).to(device)
         model.eval()
         multi_gpu=len(args.gpuid.split(",")) > 1
-        #pdb.set_trace()
         model2 = load_model(get_model_dict(model), device, multi_gpu=multi_gpu)
         # model2.type(list(model.parameters())[0].dtype)
         model2.eval()

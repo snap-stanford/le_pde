@@ -17,7 +17,7 @@ import yaml
 import sys, os
 sys.path.append(os.path.join(os.path.dirname("__file__"), '..'))
 sys.path.append(os.path.join(os.path.dirname("__file__"), '..', '..'))
-from plasma.pytorch_net.util import lcm, L2Loss, Attr_Dict, Printer
+from pytorch_net.util import lcm, L2Loss, Attr_Dict, Printer
 
 p = Printer(n_digits=6)
 
@@ -2284,13 +2284,13 @@ def get_Hessian_penalty(
             loss = loss * factor
     return loss
 
-
 def read_zipped_array(filename):
     file = np.load(filename)
     array = file[file.files[-1]]  # last entry in npz file has to be data array
     if array.shape[0] != 1 or len(array.shape) == 1:
         array = np.expand_dims(array, axis=0)
-    if not physics_config.is_x_first and array.shape[-1] != 1:
+    # if not physics_config.is_x_first and array.shape[-1] != 1:
+    if array.shape[-1] != 1:
         array = array[..., ::-1]  # component order in stored files is always XYZ
     return array
 
@@ -2298,7 +2298,8 @@ def read_zipped_array(filename):
 def write_zipped_array(filename, array):
     if array.shape[0] == 1 and len(array.shape) > 1:
         array = array[0, ...]
-    if not physics_config.is_x_first and array.shape[-1] != 1:
+    #if not physics_config.is_x_first and array.shape[-1] != 1:
+    if array.shape[-1] != 1:
         array = array[..., ::-1]  # component order in stored files is always XYZ
     np.savez_compressed(filename, array)
 
