@@ -39,7 +39,7 @@ pip install -r requirements.txt
 
 If you want to do inverse optimization, run also the following command inside the root directory of PDE_Control repository:
 ```code
-pip install PDE-Control/PhiFlow/[gui] jupyterlab tensorflow==1.14.0 matplotlib
+pip install PDE-Control/PhiFlow/[gui] jupyterlab
 ```
 
 
@@ -81,7 +81,7 @@ To analyze the results, use the following notebooks:
 * 1D: [analysis_1d.ipynb](https://github.com/snap-stanford/le_pde/blob/master/analysis_1d.ipynb)
 * 2D: [analysis_2d.ipynb](https://github.com/snap-stanford/le_pde/blob/master/analysis_2d.ipynb)
 * 3D: [analysis_3d.ipynb](https://github.com/snap-stanford/le_pde/blob/master/analysis_3d.ipynb)
-* Inverse optimization: [analysis_inverse.ipynb](https://github.com/snap-stanford/le_pde/blob/master/analysis_inverse.ipynb) (in preparation)
+* Inverse optimization: [analysis_inverse.ipynb](https://github.com/snap-stanford/le_pde/blob/master/analysis_inverse.ipynb)
 
 Pre-trained experiment files can also be downloaded [here](https://drive.google.com/drive/folders/1eHrr5CX1HEuqpsoQ0G89SyT47Dg8GyoR?usp=share_link) (put it under result/, and also change the `dirname` in the analysis notebook accordingly).
 
