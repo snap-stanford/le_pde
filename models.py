@@ -24,7 +24,7 @@ import sys, os
 sys.path.append(os.path.join(os.path.dirname("__file__"), '..'))
 sys.path.append(os.path.join(os.path.dirname("__file__"), '..', '..'))
 from le_pde.datasets.load_dataset import load_data
-from le_pde.pytorch_net.util import get_repeat_interleave, forward_Runge_Kutta, tuple_add, tuple_mul, to_np_array, record_data, ddeepcopy as deepcopy, Attr_Dict, set_seed, pdump, pload, get_time, check_same_model_dict
+from le_pde.pytorch_net.util import get_repeat_interleave, forward_Runge_Kutta, tuple_add, tuple_mul, to_np_array, record_data, ddeepcopy as deepcopy, Attr_Dict, set_seed, pdump, pload, get_time, check_same_model_dict, print_banner, to_string
 from le_pde.utils import SpectralNorm, SpectralNormReg, requires_grad, process_data_for_CNN, get_regularization, get_batch_size, get_Hessian_penalty
 from le_pde.utils import detach_data, get_model_dict, loss_op_core, MLP, get_keys_values, flatten, get_elements, get_activation, to_cpu, to_tuple_shape, parse_multi_step, parse_act_name, parse_reg_type, loss_op, get_normalization, get_edge_index_kernel, loss_hybrid, stack_tuple_elements, add_noise, get_neg_loss, get_pos_dims_dict
 from le_pde.utils import p, seed_everything, is_diagnose, get_precision_floor, parse_string_idx_to_list, parse_loss_type, get_loss_ar, get_max_pool, get_data_next_step, get_LCM_input_shape, expand_same_shape, Sum, Mean, Channel_Gen, Flatten, Permute, Reshape, add_data_noise 
@@ -2817,3 +2817,226 @@ def get_Hessian_penalty(
         else:
             loss = loss * factor
     return loss
+
+def rollout(
+    dataset,
+    init_step,
+    model,
+    device,
+    algo,
+    n_rollout_steps=100,
+    interval=20,
+    n_plots_row=6,
+    use_grads=True,
+    is_y_diff=False,
+    loss_type="mse",
+    isplot=2,
+    dataset_name=None,
+    **kwargs
+):
+    """Rollout for multiple time steps."""
+    def plot_loss_list(loss_list, key):
+        from sklearn.linear_model import LinearRegression
+        fontsize=14
+        plt.figure(figsize=(15,5))
+        plt.subplot(1,2,1)
+        power_list = []
+        for k in range(dyn_dims[key]):
+            plt.plot(loss_list[:,k], label="{}th".format(k))
+            linear_rg = LinearRegression().fit(np.log(np.arange(1, 1+len(loss_list[k])))[:, None], np.log(loss_list[k]))
+            power_list.append(linear_rg.coef_[0])
+        plt.xlabel("steps", fontsize=fontsize)
+        plt.ylabel("mse", fontsize=fontsize)
+        plt.tick_params(labelsize=fontsize)
+        plt.legend(fontsize=fontsize)
+
+        plt.subplot(1,2,2)
+        for k in range(dyn_dims[key]):
+            plt.semilogy(loss_list[:,k], label="{}th".format(k))
+        plt.xlabel("steps", fontsize=fontsize)
+        plt.ylabel("mse", fontsize=fontsize)
+        plt.title("power: {}".format(to_string(power_list, num_digits=3, connect=", ")))
+        plt.tick_params(labelsize=fontsize)
+        plt.legend(fontsize=fontsize)
+        plt.show()
+
+    def plot_array1D_time(pred, target, vmin, vmax):
+        plt.figure(figsize=(15,6))
+        plt.subplot(1,2,1)
+        plt.imshow(pred, vmin=vmin, vmax=vmax, origin="lower")
+        plt.subplot(1,2,2)
+        plt.imshow(target, vmin=vmin, vmax=vmax, origin="lower")
+        plt.show()
+
+    if isplot > 0:
+        print_banner("Evaluate rollouts starting at t={}, for steps {} further:".format(init_step, np.concatenate([np.arange(0, n_rollout_steps, interval), np.array([n_rollout_steps-1])], 0)))
+    model.eval()
+
+    data = deepcopy(dataset[init_step]).to(device)  # node_feature: [n_nodes, input_steps, static_dims + dyn_dims]
+
+    dyn_dims = dict(to_tuple_shape(data.dyn_dims))
+    original_shape = dict(to_tuple_shape(data.original_shape))
+    pos_dims = get_pos_dims_dict(original_shape)
+    grid_keys = data.grid_keys
+    loss_1step_list = []
+    if algo in ["gns", "unet"]:
+        preds = {}
+        for i in range(n_rollout_steps):
+            with torch.no_grad():
+                # The returned data does not contain grads:
+                data, pred = get_data_next_step(model, data, use_grads=use_grads, return_data=True, is_y_diff=is_y_diff)
+                record_data(preds, list(data.node_feature.values()), list(data.node_feature.keys()))
+                loss = to_np_array(loss_op(pred, dataset[init_step + i].to(device).node_label, dataset[init_step + i].mask, y_idx=0, loss_type="mse", reduction="mean-dyn", **kwargs), full_reduce=False)
+                loss_1step_list.append(loss)
+        for key in preds:
+            preds[key] = torch.cat(preds[key], 1)[..., -dyn_dims[key]:]  # [n_nodes, pred_steps: n_rollout_steps, dyn_dims]
+    elif algo in ["contrast", "contrast-ebm"]:
+        preds, info = model(data, pred_steps=np.arange(1, n_rollout_steps+1), use_grads=use_grads, is_recons=True, is_y_diff=is_y_diff, is_rollout=True)  # [n_nodes, pred_steps: n_rollout_steps, dyn_dims]
+        for i in range(n_rollout_steps):
+            pred = {key: preds[key][...,i:i+1,:] for key in preds}
+            loss = to_np_array(loss_op(pred, dataset[init_step+i].to(device).node_label, dataset[init_step+i].mask, y_idx=0, loss_type="mse", reduction="mean-dyn", keys=to_tuple_shape(grid_keys), **kwargs), full_reduce=False)
+            loss_1step_list.append(loss)
+        # Compute latent targets:
+        latent_targets = []
+        for i in range(n_rollout_steps):
+            data = deepcopy(dataset[init_step+i+1])
+            latent_targets.append(model.encoder(data, use_grads=use_grads))
+        if not isinstance(latent_targets[0], tuple):
+            latent_targets = torch.stack(latent_targets, 1)
+        else:
+            latent_targets = stack_tuple_elements(latent_targets, 1)
+        info["latent_targets"] = latent_targets
+    else:
+        raise Exception("algo '{}' is not supported!".format(algo))
+    loss_1step_list = np.stack(loss_1step_list)  # After stack: [n_rollout_steps, dyn_dims]
+    permute_order = {key: (pos_dims[key],) + tuple(range(pos_dims[key])) + (pos_dims[key] + 1,) for key in pos_dims}
+    # before: [n_grids, pred_steps, dyn_dims]; reshape: [[pos_dims], pred_steps, dyn_dims]; transpose: [pred_steps, [pos_dims], dyn_dims]:
+    preds_list = {key: to_np_array(preds[key].reshape(*original_shape[key if key in grid_keys else grid_keys[0]], *preds[key].shape[1:])).transpose(*permute_order[key if key in grid_keys else grid_keys[0]]) for key in preds}
+
+    targets = {}
+    loss_list_dict = {}
+    MAE_list_dict = {}
+    for key in data.node_feature:
+        # Get ground-truth:
+        array_gt = []
+        for k in range(n_rollout_steps):
+            data_gt = dataset[init_step + 1 + k]
+            array_gt.append(to_np_array(data_gt.node_feature[key][:, 0, -dyn_dims[key]:].reshape(1, *original_shape[key if key in grid_keys else grid_keys[0]], dyn_dims[key])))
+        array_gt = np.vstack(array_gt)
+        targets[key] = array_gt
+        if pos_dims[key] == 2:
+            loss_list_dict[key] = ((array_gt - preds_list[key]) ** 2).mean((1,2))
+            MAE_list_dict[key] = np.abs(array_gt - preds_list[key]).mean((1,2))
+        elif pos_dims[key] == 1:
+            loss_list_dict[key] = ((array_gt - preds_list[key]) ** 2).mean(1)
+            MAE_list_dict[key] = np.abs(array_gt - preds_list[key]).mean(1)
+        else:
+            raise
+
+    if dataset_name is not None and dataset_name.startswith("VL-small"):
+        if isplot >= 1:
+            for i in range(0, n_rollout_steps, interval):
+                print("Rollout at {}".format(i))
+                plot_vlasov(spec=preds_list["2"][i, ..., 0], fld=preds_list["0"][i, ..., 0], 
+                            spec2=targets["2"][i, ..., 0], fld2=targets["0"][i, ..., 0], 
+                            mask=data.mask, mask_outer=dataset.mask_outer if hasattr(dataset, "mask_outer") else None,
+                            title=("pred", "target"),
+                            dataset_name=dataset_name,
+                            vmin=0, vmax=7,
+                           )
+            print("pred:")
+            plot_energy(preds_list, dataset_name=dataset_name)
+            print("gt:")
+            plot_energy(targets, dataset_name=dataset_name)
+    else:
+        for key in data.node_feature:
+            array_gt = targets[key]
+            # vmax = array_gt.max()
+            # vmin = array_gt.min()
+            # if abs(vmin) > abs(vmax) / 2:
+            #     vmin = -vmax
+            # else:
+            #     vmin = 0
+            if isplot >= 2:
+                for k in range(dyn_dims[key]):
+                    vmax = array_gt[...,k].max()
+                    vmin = array_gt[...,k].min()
+                    if abs(vmin) > abs(vmax) / 2:
+                        vmin = -vmax
+                    else:
+                        vmin = 0
+                    print("{}: the {}th dynamic feature in rollout, with maximum={:.4f}:".format(key, k, preds_list[key][:, k].max()))
+                    if len(array_gt.shape) == 4:  # 2D grid
+                        print("ground-truth:")
+                        plot_array(array_gt[...,k], interval=interval, vmin=vmin, vmax=vmax, n_plots_row=n_plots_row)
+                        print("prediction:")
+                        plot_array(preds_list[key][...,k], interval=interval, loss_list=loss_list_dict[key][:,k], vmin=vmin, vmax=vmax, n_plots_row=n_plots_row)
+                        print("diff:")
+                        diff = preds_list[key][...,k] - array_gt[...,k]
+                        plot_array(diff, interval=interval, vmin=-vmax, vmax=vmax, is_range=True, n_plots_row=n_plots_row, cmap="PiYG")
+                    elif len(array_gt.shape) == 3:  # 1D grid
+                        # Plot snapshots at intervals:
+                        plot_array1D(preds_list[key][...,k], array_gt[...,k], loss_list=loss_list_dict[key][:, k], interval=interval, vmin=vmin, vmax=vmax, is_range=False, n_plots_row=n_plots_row)
+                        # Plot full rollouts across time (x-axis: x, y-axis: time):
+                        plot_array1D_time(preds_list[key][...,k], array_gt[...,k], vmin=vmin, vmax=vmax)
+                    print()
+
+            # Plot loss curve w.r.t. rollout steps:
+            if isplot >= 1:
+                print("MSE, cumulative:")
+                plot_loss_list(loss_list_dict[key], key)
+                print("MSE, cumulative input 1-step target:")
+                plot_loss_list(loss_1step_list, key)
+    losses_rollout_all = {"loss_list_dict": loss_list_dict,
+                          "MAE_list_dict": MAE_list_dict,
+                          "loss_1step_list": loss_1step_list,
+                         }
+    return (preds_list, targets), losses_rollout_all, info
+
+def plot_array(array, interval=10, loss_list=None, is_range=False, vmin=0, vmax="start", n_plots_row=5, cmap="PiYG"):
+    """
+    Args:
+        array: has shape of [steps, rows, cols, dyn_dims].
+        interval: interval by which you want to plot the array.
+        vmin, vmax: choose from 
+            None: will use the min/max in the full array
+            "start": use the min/max in the starting array
+            "auto": use each respective array
+            a number: user specified value.
+        loss_list: losses corresponding to each array, for making subtitles.
+        is_range: if True, will put the range at the subtitles.
+        n_plots_row: number of subplots per row. Default 5.
+        cmap: colormap for matplotlib.
+    """
+    nplots = int(np.ceil(len(array) / interval))
+    nrows = int(np.ceil(nplots / n_plots_row))
+    fig, axes = plt.subplots(nrows=nrows, ncols=n_plots_row, figsize=(22, 6*nrows))
+    array_s = array[::interval]
+    if vmin is None:
+        vmin = array_s.min()
+    elif vmin == "start":
+        vmin = array_s[0].min()
+    if vmax is None:
+        vmax = array_s.max()
+    elif vmax == "start":
+        vmax = array_s[0].max()
+    idx = 0
+    for i, ax in enumerate(array):
+        if i % interval == 0 or i == len(array) - 1: 
+            if nrows > 1:
+                row, col = divmod(idx, n_plots_row)
+                ax = axes[row][col]
+            else:
+                ax = axes[idx]
+            idx += 1
+            im = ax.imshow(array[i], vmin=vmin if vmin!="auto" else None, vmax=vmax if vmax!="auto" else None, cmap=cmap)
+            if is_range:
+                ax.set_title("{}: range: [{:.3f}, {:.3f}]\nm: {:.2e}, std: {:.3f}".format(i, array[i].min(), array[i].max(), array[i].mean(), array[i].std()))
+            else:
+                if loss_list is not None:
+                    ax.set_title("{}: mse: {:.6f}".format(i, loss_list[i]))
+
+    fig.subplots_adjust(right=0.8)
+    cbar_ax = fig.add_axes([0.82, 0.15, 0.01, 0.7])
+    fig.colorbar(im, cax=cbar_ax)
+    plt.show()
