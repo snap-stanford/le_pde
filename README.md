@@ -52,6 +52,8 @@ The dataset files can be downloaded via [this link](https://drive.google.com/dri
 
 # Training
 
+Below we provide example commands for training LE-PDEs. For all the commands that reproduce the experiments in the paper, see the [results/README.md](https://github.com/snap-stanford/le_pde/blob/master/results/README.md).
+
 An example 1D training command is:
 
 ```code
@@ -69,8 +71,6 @@ python train.py --exp_id=le-pde-smoke --date_time=2022-11-21 --dataset=movinggas
 ```
 
 The results are saved under `results/{--exp_id}_{--date_time}/` (here `--exp_id` and `--date_time` are according to the command for training). Each experiment file has the following suffix: "*Hash_{hash}_{machine-name}.p". The hash (e.g., "Un6ae7ja"), is uniquely generated according to all the configurations of the argparse (if any argument is different, it will result in a different hash).
-
-For all the commands that reproduce the experiments in the paper, see the [results/README.md](https://github.com/snap-stanford/le_pde/blob/master/results/README.md).
 
 # Inverse design
 [inverse_design.ipynb](https://github.com/snap-stanford/le_pde/blob/master/inverse_design.ipynb) is a script file for inverse design to optimize the boundary condition. exp_id and data_time need to be provided to identify folder storing a model with which you perform inverse design. They should be part of the folder's name as described above.
