@@ -85,6 +85,10 @@ To analyze the results, use the following notebooks:
 
 Pre-trained experiment files can also be downloaded [here](https://drive.google.com/drive/folders/1eHrr5CX1HEuqpsoQ0G89SyT47Dg8GyoR?usp=share_link) (put it under result/, and also change the `dirname` in the analysis notebook accordingly).
 
+# Related Projects:
+
+* [LAMP](https://github.com/snap-stanford/lamp) (ICLR 2023 spotlight): first fully DL-based surrogate model that jointly optimizes spatial resolutions to reduce computational cost and learns the evolution model, learned via reinforcement learning.
+
 # Citation
 If you find our work and/or our code useful, please cite us via:
 
