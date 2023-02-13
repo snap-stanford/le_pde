@@ -7,7 +7,9 @@ Official repo for the paper [Learning to Accelerate Partial Differential Equatio
 NeurIPS 2022  </br>
 
 
-It introduces a simple, fast and scalable LE-PDE method to accelerate the simulation and inverse optimization of PDEs, which are crucial in many scientific and engineering applications (e.g., weather forecasting, material science, engine design). LE-PDE achieves up to 128x reduction in the dimensions to update, and up to 15x improvement in speed, while achieving competitive accuracy compared to state-of-the-art deep learning-based surrogate models (e.g., FNO, MP-PDE).
+It introduces a simple, fast and scalable LE-PDE method to accelerate the simulation and inverse optimization of PDEs, which are crucial in many scientific and engineering applications (e.g., weather forecasting, material science, engine design).
+
+LE-PDE achieves up to 128x reduction in the dimensions to update, and up to 15x improvement in speed, while achieving competitive accuracy compared to state-of-the-art deep learning-based surrogate models (e.g., FNO, MP-PDE).
 
 <a href="url"><img src="https://github.com/snap-stanford/le_pde/blob/master/assets/le_pde.png" align="center" width="700" ></a>
 
