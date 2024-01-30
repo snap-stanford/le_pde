@@ -96,6 +96,10 @@ Pre-trained experiment files can also be downloaded [here](https://drive.google.
 
 * [LAMP](https://github.com/snap-stanford/lamp) (ICLR 2023 spotlight): first fully DL-based surrogate model that jointly optimizes spatial resolutions to reduce computational cost and learns the evolution model, learned via reinforcement learning.
 
+* [CinDM](https://github.com/AI4Science-WestlakeU/cindm) (ICLR 2024 spotlight): We introduce a method that uses compositional generative models to design boundaries and initial states significantly more complex than the ones seen in training for physical simulations.
+
+* [BENO](https://github.com/AI4Science-WestlakeU/beno) (ICLR 2024): We introduce a boundary-embedded neural operator that incorporates complex boundary shape and inhomogeneous boundary values into the solving of Elliptic PDEs.
+
 # Citation
 If you find our work and/or our code useful, please cite us via:
 
